@@ -1,0 +1,28 @@
+# Ignore the .env file to prevent sensitive data from being tracked
+.env
+
+# Ignore Python bytecode files
+*.pyc
+*.pyo
+__pycache__/
+
+# Ignore virtual environment directories (if using virtualenv or venv)
+.venv/
+env/
+*venv/
+*.venv/
+
+# Ignore IDE/editor specific files
+.vscode/
+.idea/
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore coverage reports and testing directories
+.coverage
+nosetests.xml
+pytest_cache/
