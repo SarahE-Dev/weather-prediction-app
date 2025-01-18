@@ -277,7 +277,7 @@ class WeatherApp:
             return False
 
     def predict_temperature(self):
-        """Make temperature predictions using the improved K-NN model."""
+        """Make temperature predictions using the K-NN model and save to CSV."""
         if self.model is None:
             if not self.load_model():
                 print("Please train a model first!")
@@ -294,14 +294,23 @@ class WeatherApp:
             latest_date = pd.to_datetime(self.historical_data['date']).max()
             prediction_date = latest_date + pd.Timedelta(days=1)
             
+            # Calculate temp_avg from the most recent max and min temperatures
+            latest_temp_avg = (self.historical_data['max_temp'].iloc[-1] + 
+                            self.historical_data['min_temp'].iloc[-1]) / 2
+            
+            # Calculate day of year and seasonal features
+            day_of_year = prediction_date.dayofyear
+            day_sin = np.sin(2 * np.pi * day_of_year/365)
+            day_cos = np.cos(2 * np.pi * day_of_year/365)
+            
             # Create features for prediction
             prediction_features = pd.DataFrame({
                 'humidity': [self.historical_data['humidity'].iloc[-1]],
                 'precipitation': [self.historical_data['precipitation'].iloc[-1]],
                 'wind_speed': [self.historical_data['wind_speed'].iloc[-1]],
-                'day_sin': [np.sin(2 * np.pi * prediction_date.dayofyear/365)],
-                'day_cos': [np.cos(2 * np.pi * prediction_date.dayofyear/365)],
-                'temp_avg': [self.historical_data['temp_avg'].iloc[-1]]
+                'day_sin': [day_sin],
+                'day_cos': [day_cos],
+                'temp_avg': [latest_temp_avg]
             })
 
             # Scale features
@@ -310,35 +319,82 @@ class WeatherApp:
             # Make prediction
             predictions = self.model.predict(features_scaled)
 
-            # Find similar days for context
-            distances, indices = self.model.estimators_[0].best_estimator_.kneighbors(features_scaled)
-            similar_days = self.historical_data.iloc[indices[0]]
+            # Create prediction dictionary
+            prediction_dict = {
+                'date': prediction_date.strftime('%Y-%m-%d'),
+                'predicted_high': round(predictions[0][0], 2),
+                'predicted_low': round(predictions[0][1], 2),
+                'humidity': prediction_features['humidity'].iloc[0],
+                'precipitation': prediction_features['precipitation'].iloc[0],
+                'wind_speed': round(prediction_features['wind_speed'].iloc[0], 2),
+                'prediction_timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            }
+
+            # Save prediction to CSV
+            predictions_file = 'data/predictions/predictions.csv'
+            os.makedirs(os.path.dirname(predictions_file), exist_ok=True)
+            
+            # Convert prediction to DataFrame
+            prediction_df = pd.DataFrame([prediction_dict])
+            
+            # Define column order
+            columns = [
+                'date',
+                'prediction_timestamp',
+                'predicted_high',
+                'predicted_low',
+                'humidity',
+                'precipitation',
+                'wind_speed'
+            ]
+
+            try:
+                # Try to read existing predictions
+                existing_predictions = pd.read_csv(predictions_file)
+                
+                # Check if all columns exist, add missing ones
+                for col in columns:
+                    if col not in existing_predictions.columns:
+                        existing_predictions[col] = None
+                
+                # Append new prediction
+                updated_predictions = pd.concat([existing_predictions, prediction_df[columns]], ignore_index=True)
+                
+            except (FileNotFoundError, pd.errors.EmptyDataError):
+                # If file doesn't exist or is empty, create new DataFrame
+                updated_predictions = prediction_df[columns]
+
+            # Save to CSV
+            updated_predictions.to_csv(predictions_file, index=False)
 
             # Display results
             print(f"\nPrediction for tomorrow ({prediction_date.strftime('%Y-%m-%d')}):")
             print(f"Predicted High: {predictions[0][0]:.1f}°F")
             print(f"Predicted Low: {predictions[0][1]:.1f}°F")
             
-            print("\nBased on similar historical days:")
-            for idx, day in similar_days.iterrows():
-                print(f"Date: {day['date'].strftime('%Y-%m-%d')}")
-                print(f"Actual High: {day['max_temp']:.1f}°F, Low: {day['min_temp']:.1f}°F")
-                print(f"Conditions: Humidity {day['humidity']}%, "
-                    f"{'Rain' if day['precipitation'] == 1 else 'No Rain'}, "
-                    f"Wind {day['wind_speed']:.1f} mph")
-                print()
+            print("\nCurrent Conditions Used:")
+            print(f"Temperature: {latest_temp_avg:.1f}°F (average)")
+            print(f"Humidity: {prediction_features['humidity'].iloc[0]}%")
+            print(f"Precipitation: {'Yes' if prediction_features['precipitation'].iloc[0] == 1 else 'No'}")
+            print(f"Wind Speed: {prediction_features['wind_speed'].iloc[0]:.1f} mph")
 
             if hasattr(self, 'mae') and hasattr(self, 'rmse'):
                 print("\nModel Performance Metrics:")
                 print(f"Mean Absolute Error: ±{self.mae:.1f}°F")
                 print(f"Root Mean Squared Error: ±{self.rmse:.1f}°F")
 
+            print(f"\nPrediction saved to {predictions_file}")
+
         except Exception as e:
             print(f"Error making prediction: {str(e)}")
+            print("\nDebugging Information:")
+            print("Available features:", prediction_features.columns.tolist())
+            print("Feature values:")
+            print(prediction_features)
        
 
     def visualize_data(self):
-        """Visualize weather data with various plots."""
+        """Visualize weather data with various plots using dark theme and plasma/magma colors."""
         if self.historical_data is None:
             print("No data available for visualization!")
             return
@@ -348,41 +404,121 @@ class WeatherApp:
         print("2. Humidity vs Temperature")
         print("3. Wind Speed Distribution")
         print("4. Correlation Matrix")
+        print("5. Temperature Heatmap")
         
-        choice = input("\nSelect visualization type (1-4): ")
+        choice = input("\nSelect visualization type (1-5): ")
         
-        plt.figure(figsize=(12, 6))
+        # Set dark theme style
+        plt.style.use('dark_background')
+        
+        # Custom color palette using plasma colors
+        colors = plt.cm.plasma(np.linspace(0, 1, 5))
         
         try:
             if choice == '1':
-                plt.plot(self.historical_data['date'], self.historical_data['max_temp'], label='Max Temp')
-                plt.plot(self.historical_data['date'], self.historical_data['min_temp'], label='Min Temp')
-                plt.title('Temperature Trends Over Time')
-                plt.xlabel('Date')
-                plt.ylabel('Temperature (°F)')
+                fig, ax = plt.subplots(figsize=(12, 6))
+                
+                # Create gradient fill for temperature range
+                dates = self.historical_data['date']
+                max_temp = self.historical_data['max_temp']
+                min_temp = self.historical_data['min_temp']
+                
+                ax.fill_between(dates, max_temp, min_temp, 
+                            alpha=0.3, color=colors[0],
+                            label='Temperature Range')
+                ax.plot(dates, max_temp, color=colors[1], 
+                    label='Max Temp', linewidth=2)
+                ax.plot(dates, min_temp, color=colors[3], 
+                    label='Min Temp', linewidth=2)
+                
+                ax.set_title('Temperature Trends Over Time', 
+                            color='white', pad=20, fontsize=14)
+                ax.set_xlabel('Date', color='white')
+                ax.set_ylabel('Temperature (°F)', color='white')
                 plt.xticks(rotation=45)
-                plt.legend()
+                ax.legend(facecolor='black', edgecolor='white')
+                
+                # Grid styling
+                ax.grid(True, linestyle='--', alpha=0.3)
+                
             elif choice == '2':
-                plt.scatter(self.historical_data['humidity'], self.historical_data['max_temp'], 
-                          alpha=0.5, label='Max Temp')
-                plt.scatter(self.historical_data['humidity'], self.historical_data['min_temp'], 
-                          alpha=0.5, label='Min Temp')
-                plt.title('Humidity vs Temperature')
-                plt.xlabel('Humidity (%)')
-                plt.ylabel('Temperature (°F)')
-                plt.legend()
+                fig, ax = plt.subplots(figsize=(12, 6))
+                
+                scatter_max = ax.scatter(self.historical_data['humidity'], 
+                                    self.historical_data['max_temp'],
+                                    c=self.historical_data['date'].astype(np.int64),
+                                    cmap='plasma', alpha=0.6, label='Max Temp')
+                scatter_min = ax.scatter(self.historical_data['humidity'], 
+                                    self.historical_data['min_temp'],
+                                    c=self.historical_data['date'].astype(np.int64),
+                                    cmap='magma', alpha=0.6, label='Min Temp')
+                
+                plt.colorbar(scatter_max, label='Time Progression')
+                ax.set_title('Humidity vs Temperature', 
+                            color='white', pad=20, fontsize=14)
+                ax.set_xlabel('Humidity (%)', color='white')
+                ax.set_ylabel('Temperature (°F)', color='white')
+                ax.legend(facecolor='black', edgecolor='white')
+                
             elif choice == '3':
-                sns.histplot(self.historical_data['wind_speed'], bins=20)
-                plt.title('Wind Speed Distribution')
-                plt.xlabel('Wind Speed (mph)')
+                fig, ax = plt.subplots(figsize=(12, 6))
+                
+                sns.histplot(data=self.historical_data, x='wind_speed', 
+                            bins=20, color=colors[2], alpha=0.7)
+                ax.set_title('Wind Speed Distribution', 
+                            color='white', pad=20, fontsize=14)
+                ax.set_xlabel('Wind Speed (mph)', color='white')
+                ax.set_ylabel('Count', color='white')
+                
             elif choice == '4':
+                fig, ax = plt.subplots(figsize=(10, 8))
+                
                 numeric_cols = self.historical_data.select_dtypes(include=[np.number]).columns
                 correlation_matrix = self.historical_data[numeric_cols].corr()
-                sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0)
-                plt.title('Correlation Matrix of Weather Variables')
+                
+                sns.heatmap(correlation_matrix, annot=True, 
+                        cmap='plasma', center=0, ax=ax,
+                        annot_kws={'color': 'white'})
+                
+                ax.set_title('Correlation Matrix of Weather Variables', 
+                            color='white', pad=20, fontsize=14)
+                
+            elif choice == '5':
+                # New visualization: Temperature Heatmap by Month and Hour
+                fig, ax = plt.subplots(figsize=(12, 6))
+                
+                # Extract month and create average temperature
+                self.historical_data['month'] = self.historical_data['date'].dt.month
+                self.historical_data['temp_avg'] = (self.historical_data['max_temp'] + 
+                                                self.historical_data['min_temp']) / 2
+                
+                # Create pivot table for heatmap
+                temp_pivot = self.historical_data.pivot_table(
+                    values='temp_avg',
+                    index='month',
+                    columns=self.historical_data['date'].dt.day,
+                    aggfunc='mean'
+                )
+                
+                sns.heatmap(temp_pivot, cmap='magma', 
+                        annot=False, ax=ax)
+                ax.set_title('Temperature Heatmap by Month and Day', 
+                            color='white', pad=20, fontsize=14)
+                ax.set_xlabel('Day of Month', color='white')
+                ax.set_ylabel('Month', color='white')
+                
             else:
                 print("Invalid choice!")
                 return
+
+            # Common styling for all plots
+            fig.patch.set_facecolor('#1C1C1C')  # Dark background
+            ax.set_facecolor('#2F2F2F')  # Slightly lighter background for plot area
+            
+            # Style the axis labels and ticks
+            ax.tick_params(colors='white', which='both')
+            for spine in ax.spines.values():
+                spine.set_color('white')
 
             # Save and show the plot
             plt.tight_layout()
@@ -391,12 +527,13 @@ class WeatherApp:
                 'visualizations', 
                 f'viz_{datetime.now().strftime("%Y%m%d_%H%M%S")}.png'
             )
-            plt.savefig(save_path)
+            plt.savefig(save_path, facecolor='#1C1C1C', edgecolor='none', bbox_inches='tight')
             plt.show()
             print(f"\nVisualization saved to: {save_path}")
 
         except Exception as e:
             print(f"Error creating visualization: {e}")
+            raise
 
     def export_data(self):
         """Export weather data in various formats."""
