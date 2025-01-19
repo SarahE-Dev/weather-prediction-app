@@ -9,112 +9,140 @@ import pandas as pd
 def build_model(historical_data):
     """
     Build and train an improved K-NN weather prediction model.
-    
+
+    This function preprocesses historical weather data, adds seasonal features,
+    scales the data, performs hyperparameter tuning using GridSearchCV,
+    and trains a multi-output K-NN regression model to predict both maximum and minimum temperatures.
+
     Args:
-        historical_data (pd.DataFrame): Historical weather data DataFrame
-        
+        historical_data (pd.DataFrame): Historical weather data DataFrame.
+            Expected columns: 'date', 'max_temp', 'min_temp', 'humidity', 'precipitation', 'wind_speed'.
+
     Returns:
-        tuple: (trained_model, scaler, mae, rmse)
+        tuple: A tuple containing:
+            - trained_model (MultiOutputRegressor): The trained multi-output regression model.
+            - scaler (StandardScaler): The scaler fitted on the feature data, for future transformations.
+            - mae (float): Mean Absolute Error of the model on the test set.
+            - rmse (float): Root Mean Squared Error of the model on the test set.
+
+    Raises:
+        ValueError: If there is a data validation error.
+        TypeError: If there is a data type mismatch.
+        KeyError: If required columns are missing in the data.
+        MemoryError: If the system runs out of memory during model training.
+        Exception: For any other unexpected errors during model building.
     """
     try:
-        # Convert date to datetime if it's not already
+        # Ensure the 'date' column is in datetime format
         historical_data['date'] = pd.to_datetime(historical_data['date'])
         
-        # Add seasonal features to help K-NN find similar days
+        # Add 'day_of_year' to capture seasonal patterns (ranges from 1 to 365/366)
         historical_data['day_of_year'] = historical_data['date'].dt.dayofyear
         
-        # Add cyclical features for better seasonal matching
-        historical_data['day_sin'] = np.sin(2 * np.pi * historical_data['day_of_year']/365)
-        historical_data['day_cos'] = np.cos(2 * np.pi * historical_data['day_of_year']/365)
+        # Create cyclical features to model the seasonality
+        # These help the model to understand the cyclical nature of seasons
+        historical_data['day_sin'] = np.sin(2 * np.pi * historical_data['day_of_year'] / 365)
+        historical_data['day_cos'] = np.cos(2 * np.pi * historical_data['day_of_year'] / 365)
         
-        # Calculate temperature averages
+        # Calculate the average temperature as an additional feature
         historical_data['temp_avg'] = (historical_data['max_temp'] + historical_data['min_temp']) / 2
 
-        # Prepare features - using more relevant features for K-NN
+        # Define the feature columns to be used in the model
         feature_columns = [
             'humidity',
             'precipitation',
             'wind_speed',
-            'day_sin',  # Help find seasonally similar days
-            'day_cos',  # Help find seasonally similar days
-            'temp_avg'  # Recent temperature as a feature
+            'day_sin',     # Seasonal feature
+            'day_cos',     # Seasonal feature
+            'temp_avg'     # Recent average temperature
         ]
 
-        # Prepare the data
-        X = historical_data[feature_columns]
-        y = historical_data[['max_temp', 'min_temp']]
+        # Select features and target variables
+        X = historical_data[feature_columns]  # Feature matrix
+        y = historical_data[['max_temp', 'min_temp']]  # Target variables (multi-output)
 
-        # Handle missing values
+        # Handle any missing values by filling them with the mean of each column
         X = X.fillna(X.mean())
         y = y.fillna(y.mean())
 
-        # Scale features - important for K-NN
+        # Scale the features to standardize the range
+        # Important for K-NN because it is sensitive to the scale of the data
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
-        # Split data
+        # Split data into training and testing sets
+        # Using 80% of the data for training and 20% for testing
         X_train, X_test, y_train, y_test = train_test_split(
             X_scaled, y, test_size=0.2, random_state=42
         )
 
-        # Create base K-NN model
+        # Initialize the base K-NN regressor
         base_model = KNeighborsRegressor(
-            weights='distance',  # Use distance-weighted neighbors
-            algorithm='auto',    # Automatically choose best algorithm
-            n_jobs=-1           # Use all CPU cores
+            weights='distance',  # Weight neighbors by the inverse of their distance
+            algorithm='auto',    # Automatically select the best algorithm based on the data
+            n_jobs=-1            # Use all available CPU cores for computation
         )
         
-        # Expanded parameter grid for K-NN
+        # Define the parameter grid for hyperparameter tuning
         param_grid = {
-            'n_neighbors': [3, 5, 7, 9, 11, 13, 15],
-            'weights': ['uniform', 'distance'],
-            'p': [1, 2]  # 1 for manhattan_distance, 2 for euclidean_distance
+            'n_neighbors': [3, 5, 7, 9, 11, 13, 15],  # Different K values
+            'weights': ['uniform', 'distance'],       # Uniform or distance-based weighting
+            'p': [1, 2]                               # Manhattan (1) or Euclidean (2) distance
         }
         
-        # Grid search with cross-validation
+        # Set up GridSearchCV for cross-validation and hyperparameter tuning
         grid_search = GridSearchCV(
             base_model,
             param_grid,
-            cv=5,
-            scoring='neg_mean_squared_error',
-            n_jobs=-1,
-            verbose=1
+            cv=5,                          # 5-fold cross-validation
+            scoring='neg_mean_squared_error',  # Use negative MSE as the scoring metric
+            n_jobs=-1,                     # Use all CPU cores
+            verbose=1                      # Verbosity mode; set to 0 for no output
         )
         
-        # Create multi-output regressor
+        # Wrap the grid search within a MultiOutputRegressor to handle multiple target variables
         multi_model = MultiOutputRegressor(grid_search)
-        
-        print("Training K-NN model...")
-        print("This might take a few minutes...")
+       
+        # Fit the model on the training data
+        # This will perform the grid search and train the final model
         multi_model.fit(X_train, y_train)
 
-        # Make predictions
+        # Predict on the test data
         predictions = multi_model.predict(X_test)
 
-        # Calculate metrics
-        mae = mean_absolute_error(y_test, predictions)
-        rmse = np.sqrt(mean_squared_error(y_test, predictions))
+        # Calculate regression metrics
+        mae = mean_absolute_error(y_test, predictions)  # Mean Absolute Error
+        rmse = np.sqrt(mean_squared_error(y_test, predictions))  # Root Mean Squared Error
 
-        # Get best parameters
-        best_params = multi_model.estimators_[0].best_params_
-        
-        print("\nModel Training Complete!")
-        print(f"Mean Absolute Error: {mae:.2f}°F")
-        print(f"Root Mean Squared Error: {rmse:.2f}°F")
-        print("\nBest Model Parameters:")
-        print(f"Number of neighbors (k): {best_params['n_neighbors']}")
-        print(f"Weight function: {best_params['weights']}")
-        print(f"Distance metric (p): {best_params['p']}")
+        # Optionally retrieve the best parameters for each target variable
+        # For insight into the chosen hyperparameters after grid search
+        best_params = [estimator.best_params_ for estimator in multi_model.estimators_]
+        # Uncomment the following line to print best parameters
+        # print("Best parameters found:", best_params)
 
+        # Return the trained model, scaler, and performance metrics
         return multi_model, scaler, mae, rmse
 
+    except ValueError as ve:
+        # Handle errors related to invalid data values
+        raise ValueError(f"Data validation error: {str(ve)}. Please check your input data format.")
+        
+    except TypeError as te:
+        # Handle type-related errors (e.g., non-numeric data)
+        raise TypeError(f"Data type error: {str(te)}. Please ensure all features are numeric.")
+        
+    except pd.errors.EmptyDataError:
+        # Handle case where input data is empty
+        raise ValueError("The historical data DataFrame is empty.")
+        
+    except KeyError as ke:
+        # Handle missing columns in the data
+        raise KeyError(f"Missing required column: {str(ke)}. Please ensure all required features are present.")
+        
+    except MemoryError:
+        # Handle memory errors during computation
+        raise MemoryError("Not enough memory to train the model. Try reducing the data size or freeing up memory.")
+        
     except Exception as e:
-        print(f"Error in build_model: {str(e)}")
-        print("\nDebugging Information:")
-        print(f"Input type: {type(historical_data)}")
-        if isinstance(historical_data, pd.DataFrame):
-            print("\nColumns in data:")
-            print(historical_data.columns.tolist())
-            print("\nFirst few rows:")
-            print(historical_data.head())
-        raise
+        # Handle any other exceptions that may occur
+        raise Exception(f"Unexpected error during model building: {str(e)}")

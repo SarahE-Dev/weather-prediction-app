@@ -1,4 +1,3 @@
-# src/process_data.py
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -94,13 +93,9 @@ def process_data(data):
         # Reset index
         df = df.reset_index(drop=True)
         
-        print("Data processing completed successfully!")
-        print(f"Processed {len(df)} records")
-        
         return df
     
     except Exception as e:
-        print(f"Error processing data: {str(e)}")
         # Return original data if processing fails
         return data
 
