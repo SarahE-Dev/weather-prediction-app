@@ -1,11 +1,26 @@
-# Import necessary libraries
-import streamlit as st  # For building the web app interface
-import time  # For adding delays or measuring time (if needed)
-import os  # For interacting with the operating system (e.g., file paths)
-import matplotlib.pyplot as plt  # For creating plots and charts
-from src.streamlit_weather_app import WeatherApp  # Import the WeatherApp class
-import numpy as np  # For numerical computations
-import pandas as pd  # For data manipulation and analysis
+import streamlit as st  
+import time 
+import os  
+import matplotlib.pyplot as plt
+from src.streamlit_weather_app import WeatherApp 
+import numpy as np  
+import pandas as pd  
+
+def setup_dark_mode():
+    plt.style.use('dark_background')
+    plt.rcParams.update({
+        'figure.facecolor': '#1C1C1C',  
+        'axes.facecolor': '#2D2D2D',    
+        'axes.labelcolor': 'white',     
+        'text.color': 'white',       
+        'xtick.color': 'white',        
+        'ytick.color': 'white',     
+        'grid.color': '#444444',     
+        'legend.facecolor': '#2D2D2D', 
+        'legend.edgecolor': 'white'     
+    })
+
+setup_dark_mode()
 
 def create_streamlit_app():
     """

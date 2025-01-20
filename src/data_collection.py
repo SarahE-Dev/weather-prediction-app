@@ -58,11 +58,6 @@ def get_historical_weather(city, days):
                 'humidity': data['forecast']['forecastday'][0]['day']['avghumidity'],
                 'precipitation': data['forecast']['forecastday'][0]['day']['totalprecip_mm'],
                 'wind_speed': data['forecast']['forecastday'][0]['day']['maxwind_kph'],
-                # Additional fields that might be useful
-                'condition': data['forecast']['forecastday'][0]['day']['condition']['text'],
-                'pressure': data['forecast']['forecastday'][0]['day'].get('pressure_mb', None),
-                'visibility': data['forecast']['forecastday'][0]['day'].get('avgvis_km', None),
-                'uv': data['forecast']['forecastday'][0]['day'].get('uv', None)
             }
 
             # Append the daily data to the list

@@ -309,7 +309,7 @@ class WeatherApp:
 
         Returns:
             dict: Prediction results including predicted high and low temperatures,
-                  current conditions, and model metrics.
+                current conditions, and model metrics.
         
         Raises:
             Exception: If the model is not trained or there is no historical data.
