@@ -56,7 +56,7 @@ def build_model(historical_data):
             'day_cos',     # Seasonal feature
             'temp_avg'     # Recent average temperature
         ]
-
+        # I think that the temp_avg is probably the most important feature, that and the seasonal data.
         # Select features and target variables
         X = historical_data[feature_columns]  # Feature matrix
         y = historical_data[['max_temp', 'min_temp']]  # Target variables (multi-output)
