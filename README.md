@@ -1,43 +1,62 @@
-Local Weather Prediction Project
+# Weather Prediction App
 
-Overview: Build an ML model to predict tomorrow's temperature in your city using historical weather data and your own observations.
+Welcome to the Weather Prediction App! This application allows you to collect historical weather data, train a predictive model, record observations, make predictions, and visualize data. The app is built using Python and leverages various libraries for data processing, modeling, and visualization.
 
-Data Collection:
+## Features
 
-Historical Data:
-Fellows can get their city's historical weather data from:
-   - WeatherAPI (free tier)
-   - OpenWeatherMap API (free tier)
-Your Observations (3 days):
-Record 3x daily (morning, afternoon, evening):
-Temperature
-Cloud cover (clear/partly/cloudy)
-Wind (calm/breezy/windy)
-Any precipitation
-Take a sky photo each time
-Required Project Elements:
+- Collect historical weather data for a specified city and number of days.
+- Train a predictive model using the collected data.
+- Record and store weather observations.
+- Make weather predictions and evaluate model performance.
+- Visualize weather data and prediction results.
 
-Data Collection
-Set up a simple spreadsheet for your 3-day observations
-Take sky photos with each observation
-Download 6 months of historical data for your city
-Document any unusual weather events
-Model Building
-Clean and combine your data
-Use k-NN to predict next day's temperature
-Compare predictions with actual temperatures
-Document what features seemed most important
-Presentation
-Create a 2-minute video showing:
-Your data collection process (show your photos!)
-Walk through one prediction attempt
-Share what surprised you about weather patterns
-Explain any challenges you faced
-Keep it casual but informative
-Show your personality!
-Required Tools:
+## Installation
 
-Python (with numpy, pandas, scikit-learn)
-Phone/camera for photos
-Spreadsheet for data recording
-Weather API access (free tier)
+To get started with the Weather Prediction App, follow these steps:
+
+1. **Clone the repository:**
+
+   ```bash
+   git clone <repository-url>
+   cd weather-prediction-app
+Install the required dependencies:
+
+Make sure you have Python installed. Then, install the necessary packages using pip:
+
+BASH
+
+pip install -r requirements.txt
+Set up directories:
+
+The app will automatically create necessary directories for storing data, models, and visualizations.
+
+Usage
+To run the Weather Prediction App, use the following command:
+
+BASH
+
+streamlit run streamlit_app.py
+This will start the Streamlit server and open the app in your default web browser.
+
+Code Overview
+Main Components
+WeatherApp Class: The core class representing the weather application. It handles data collection, model training, predictions, and visualizations.
+
+Data Collection: Uses the get_historical_weather function to fetch historical weather data from an API.
+
+Data Processing: Processes raw data using the process_data function, including cleaning and feature engineering.
+
+Model Building: The build_model function is used to train a predictive model on the processed data.
+
+
+Dependencies
+The app uses the following Python libraries:
+
+os: For directory management.
+pandas: For data manipulation and analysis.
+numpy: For numerical operations.
+datetime: For handling date and time operations.
+matplotlib: For data visualization.
+seaborn: For statistical data visualization.
+sklearn: For machine learning model evaluation.
+joblib: For model serialization and deserialization.
