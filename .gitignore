@@ -27,6 +27,9 @@ env/
 nosetests.xml
 pytest_cache/
 
-.streamlit/
+# Ignore secrets.toml
+.streamlit/secrets.toml
 
-secrets.toml
+# Do not ignore config.toml
+!.streamlit/config.toml
+
