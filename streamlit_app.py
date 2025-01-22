@@ -70,7 +70,6 @@ def create_streamlit_app():
     # Handle each menu option with appropriate functionality
     if choice == "Collect Historical Data":
         st.header("Collect Historical Weather Data")
-        
         # Input fields for city name and number of days
         city = st.text_input("Enter city name:")
         days = st.number_input("Enter number of days:", min_value=1, max_value=180, value=7)

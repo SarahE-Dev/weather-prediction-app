@@ -2,7 +2,7 @@ import os
 import requests
 import pandas as pd
 from datetime import datetime, timedelta
-from .config import API_KEY, CITY
+import streamlit as st
 
 def get_historical_weather(city, days):
     """
@@ -36,7 +36,7 @@ def get_historical_weather(city, days):
 
         # Set up the parameters for the API request
         params = {
-            'key': API_KEY,
+            'key': st.secrets["WEATHER_API_KEY"],
             'q': city,
             'dt': date_str
         }
